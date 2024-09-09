@@ -1,6 +1,8 @@
 import express from "express";
 
 const app = express();
+app.use(express.json());
+
 const PORT = process.env.PORT || 5000;
 const users = [
   {
@@ -39,22 +41,39 @@ const users = [
     id: 5,
   },
 ];
+
+// Helper function to sort users by firstName
+const sortUsersByFirstName = (users) => {
+  return users.sort((a, b) => a.firstName.localeCompare(b.firstName));
+};
+
 app.get(`/`, (req, res) => {
   res.status(201).send({ msg: "Hello!" });
 });
+
 app.get("/api/users", (req, res) => {
-  res.status(201).send(users);
-  console.log(req.query);
   const {
-    query: { filter, value },
+    query: { filter, value, sortBy },
   } = req;
-  console.log(filter, value);
-  if (!filter && !value) {
-    return res.send(users);
-  }
+
+  let result = users;
+
   if (filter && value) {
-    return res.send(users.filter((user) => user[filter].includes(value)));
+    result = result.filter((user) => user[filter].includes(value));
   }
+
+  if (sortBy === "firstName") {
+    result = sortUsersByFirstName(result);
+  }
+
+  return res.send(result);
+});
+app.post("/api/users", (req, res) => {
+  console.log(req.body);
+  const { body } = req;
+  const newUser = { id: users[users.length - 1].id + 1, ...body };
+  users.push(newUser);
+  return res.status(201).send(newUser);
 });
 app.get("/api/users/:id", (req, res) => {
   console.log(req.params.id);
@@ -67,6 +86,58 @@ app.get("/api/users/:id", (req, res) => {
   if (!findUser) return res.sendStatus(404);
 
   return res.send(findUser);
+});
+app.put("/api/users/:id", (req, res) => {
+  const {
+    body,
+    params: { id },
+  } = req;
+  const parseId = parseInt(id);
+  if (isNaN(parseId)) {
+    return res.sendStatus(400);
+  }
+  const findUserIndex = users.findIndex((user) => user.id === parseId);
+
+  if (findUserIndex === -1) {
+    return res.sendStatus(404);
+  }
+  users[findUserIndex] = { id: parseId, ...body };
+  return res.sendStatus(200);
+});
+// console.log(users);
+app.patch("/api/users/:id", (req, res) => {
+  const {
+    body,
+    params: { id },
+  } = req;
+  const parseId = parseInt(id);
+  if (isNaN(parseId)) {
+    return res.sendStatus(400);
+  }
+  const findUserIndex = users.findIndex((user) => user.id === parseId);
+
+  if (findUserIndex === -1) {
+    return res.sendStatus(404);
+  }
+  users[findUserIndex] = { ...users[findUserIndex], ...body };
+  return res.sendStatus(200);
+});
+app.delete("/api/users/:id", (req, res) => {
+  const {
+    body,
+    params: { id },
+  } = req;
+  console.log(body);
+  console.log(req);
+  const parseId = parseInt(id);
+  if (isNaN(parseId)) {
+    return res.sendStatus(400);
+  }
+  const findUserIndex = users.findIndex((user) => user.id === parseId);
+  if (findUserIndex === -1) return res.sendStatus(404);
+
+  users.splice(findUserIndex, 1);
+  return res.sendStatus(200);
 });
 app.listen(PORT, () => {
   console.log(`Running on port ${PORT}`);
