@@ -2,7 +2,28 @@ import express from "express";
 
 const app = express();
 app.use(express.json());
+const loggingMiddleware = (req, res, next) => {
+  console.log(`${req.method} - ${res.url}`);
+  next();
+};
+const resolveIndexByUserId = (req, res, next) => {
+  const {
+    params: { id },
+  } = req;
+  const parseId = parseInt(id);
+  if (isNaN(parseId)) {
+    return res.sendStatus(400);
+  }
+  const findUserIndex = users.findIndex((user) => user.id === parseId);
 
+  if (findUserIndex === -1) {
+    return res.sendStatus(404);
+  }
+
+  req.findUserIndex = findUserIndex; // Store the findUserIndex value in req
+  next(); // Pass the req object to the next middleware function or route handler
+};
+app.use(loggingMiddleware);
 const PORT = process.env.PORT || 5000;
 const users = [
   {
@@ -47,7 +68,7 @@ const sortUsersByFirstName = (users) => {
   return users.sort((a, b) => a.firstName.localeCompare(b.firstName));
 };
 
-app.get(`/`, (req, res) => {
+app.get(`/`, loggingMiddleware, (req, res) => {
   res.status(201).send({ msg: "Hello!" });
 });
 
@@ -87,39 +108,17 @@ app.get("/api/users/:id", (req, res) => {
 
   return res.send(findUser);
 });
-app.put("/api/users/:id", (req, res) => {
-  const {
-    body,
-    params: { id },
-  } = req;
-  const parseId = parseInt(id);
-  if (isNaN(parseId)) {
-    return res.sendStatus(400);
-  }
-  const findUserIndex = users.findIndex((user) => user.id === parseId);
-
-  if (findUserIndex === -1) {
-    return res.sendStatus(404);
-  }
-  users[findUserIndex] = { id: parseId, ...body };
+app.put("/api/users/:id", resolveIndexByUserId, (req, res) => {
+  const { body } = req;
+  const findUserIndex = req.findUserIndex; // Access the findUserIndex value from req
+  users[findUserIndex] = { id: users[findUserIndex].id, ...body };
   return res.sendStatus(200);
 });
-// console.log(users);
-app.patch("/api/users/:id", (req, res) => {
-  const {
-    body,
-    params: { id },
-  } = req;
-  const parseId = parseInt(id);
-  if (isNaN(parseId)) {
-    return res.sendStatus(400);
-  }
-  const findUserIndex = users.findIndex((user) => user.id === parseId);
 
-  if (findUserIndex === -1) {
-    return res.sendStatus(404);
-  }
-  users[findUserIndex] = { ...users[findUserIndex], ...body };
+app.patch("/api/users/:id", resolveIndexByUserId, (req, res) => {
+  const { body } = req;
+  const findUserIndex = req.findUserIndex; // Access the findUserIndex value from req
+  users[findUserIndex] = { id: users[findUserIndex].id, ...body };
   return res.sendStatus(200);
 });
 app.delete("/api/users/:id", (req, res) => {
